@@ -1,7 +1,4 @@
-import keep_alive, os, os.path
-from replit import db
-
-os.system('pip install Pillow')
+import os, os.path
 
 from excepthook import uncaught_exception, install_thread_excepthook
 import sys
@@ -9,8 +6,9 @@ sys.excepthook = uncaught_exception
 install_thread_excepthook()
 
 import boardgen, discord
+import discord.app_commands as app_commands
 from discord.ext import commands
-from discord.utils import get
+
 import getpass
 from PIL import Image, ImageDraw, ImageFont
 from io import StringIO, BytesIO
@@ -22,8 +20,6 @@ import html.parser
 import pickle
 import base64
 
-unescape = html.parser.HTMLParser().unescape
-
 
 import re
 import time
@@ -32,10 +28,6 @@ import sqlite3
 import requests
 from requests.auth import HTTPBasicAuth
 from helpers import log, log_exception
-
-
-
-
 imagehost = 'imgur'
 
 guessed = []
@@ -50,7 +42,6 @@ WORD_LIST = [line.rstrip('\n') for line in open('wordlist2.txt')]
 QUINTEC = 228267348581154817
 
 DISCORD_KEY = os.getenv("DISCORD_KEY")
-#BIN_KEY = base64.b64decode(os.getenv("BIN_KEY")).decode()
 
 team_msg_red = None
 team_msg_blue = None
@@ -58,61 +49,14 @@ blue = []
 red = []
 seed = 0
 
-#purl = "https://api.jsonbin.io/b/60d8d2a755b7245a20cfe7b7"
+intents = discord.Intents.default()
+intents.message_content = True
 
-bot = commands.Bot(command_prefix='!')
-
+bot = commands.Bot(command_prefix='!', description='Codenames bot', intents=intents)
 
 passphrases = ["[passing]","[pass]"] #stuff that indicates somebody is passing
 
 first_run = True
-
-def write_state():
-  global red, blue, guessed, whose_turn, num_guesses, seed, team_msg_red, team_msg_blue
-  obj = {}
-  obj['red'] = red
-  obj['blue'] = blue
-  obj['guessed'] = guessed
-  obj['turn'] = whose_turn
-  obj['num_guesses'] = num_guesses
-  obj['seed'] = seed
-  db["state"] = obj
-  """
-  with open('pinr.pkl', 'wb') as output:
-    pickle.dump(team_msg_red, output, pickle.HIGHEST_PROTOCOL)
-  with open('pinb.pkl', 'wb') as output:
-    pickle.dump(team_msg_blue, output, pickle.HIGHEST_PROTOCOL)
-  """
-
-def read_state():
-  global red, blue, guessed, whose_turn, num_guesses, seed, team_msg_red, team_msg_blue
-  if 'state' in db.keys():
-    obj = db['state']
-    print(obj)
-    if 'red' in obj:
-      red = obj['red']
-    if 'blue' in obj:
-      blue = obj['blue']
-    if 'guessed' in obj:
-      guessed = obj['guessed']
-    if 'turn' in obj:
-      whose_turn = obj['turn']
-    if 'seed' in obj:
-      seed = obj['seed']
-    if 'num_guesses' in obj:
-      num_guesses = obj['num_guesses']
-  """
-  if os.path.exists('pinr.pkl'):
-    with open('pinr.pkl', 'rb') as f:
-      team_msg_red = pickle.load(f)
-    with open('pinb.pkl', 'rb') as f:
-      team_msg_blue = pickle.load(f)
-  """
-  
-
-
-
- 
 
 @bot.event
 async def on_ready():
@@ -174,7 +118,6 @@ async def on_message(message):
         else:
             num_guesses = 100
         toggle_turn()
-        write_state()
 
     #print("num guesses: %s" % (num_guesses))
         
@@ -186,18 +129,16 @@ async def on_message(message):
         if guess.lower().replace("*", "", 6) in passphrases:
             await show_board(message.channel)
             toggle_turn()
-            write_state()
         else:
             await process_guess(message.channel, guess.upper().replace("*", "", 6))
-            write_state()
     await bot.process_commands(message)
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True)
 async def choose(ctx, *args):
   await ctx.send("I picked: " + random.choice(args))
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True, aliases=['guesses', 'who'])
 async def status(ctx):
     """Gets the current status of the game."""
@@ -266,13 +207,13 @@ async def process_guess(ctx, guess):
     else:
         await ctx.send("%s doesn't appear to be on the board..." % (guess.upper()))
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True)
 async def flipcoin(ctx):
     """Picks between Red and Blue."""
     await ctx.send(random.choice(["Red", "Blue"]))
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True, aliases=['pingable'])
 async def pingme(ctx):
   """Toggles the Codenamer role for pings."""
@@ -285,7 +226,7 @@ async def pingme(ctx):
       await ctx.author.add_roles(role)
       await ctx.send(":white_check_mark: Role added.")
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True)
 async def blame(ctx):
     """Blames somebody for the horrible state of the current game."""
@@ -299,14 +240,14 @@ def change_host(msg):
         new_host = pieces[1].strip()
         if new_host in ['imgur', 'puush']: imagehost = new_host
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True, aliases=['about', 'rules'])
 async def info(ctx):
     embed = discord.Embed(title="Hello! I'm Shiro!", description="I'm a bot to help with the game Codenames. See [here](https://gist.github.com/superplane39/89bd60c159eec0ab7bc897bc78f6802c#file-codenamesrules-md) for the rules and type !help for a list of commands. Have fun!", color=0x00ff00)
     await ctx.send(None, embed=embed)
 
 @bot.command(pass_context=True)
-@commands.cooldown(1, 5, commands.BucketType.default)
+@app_commands.checks.cooldown(1, 3.0)
 async def newgame(ctx, *msg):
     """Starts a new game. Make sure to mention all users that are playing. Spymasters are the first two mentions."""
     global red, blue, whose_turn, board, guessed, seed, board
@@ -370,21 +311,18 @@ async def newgame(ctx, *msg):
     elif board[0]=="#dd6664":
         await ctx.send("RED goes first!")
         whose_turn = "SMRed"
-    write_state()
     await show_board(ctx)
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True, aliases=['joinred', 'joinblue'])
 async def join(ctx):
     """Joins the current game."""
     await add_user(ctx, ctx.message.content, ctx.author.mention.replace("!", ""))
-    write_state()
 
 @bot.command(pass_context=True)
 async def leave(ctx):
     """Leaves the current game."""
     await remove_user(ctx, ctx.message.content, ctx.author.mention.replace("!", ""))
-    write_state()
 
 async def add_user(ctx, content, name):
     global red, blue
@@ -397,7 +335,7 @@ async def add_user(ctx, content, name):
     if len(segments) == 1:
         joining_user = name
     else:
-        joining_user = unescape(segments[1]).strip()
+        joining_user = segments[1].strip()
 
     dest_color = ''
     if content.lower().strip().startswith("!joinred"):
@@ -449,7 +387,7 @@ def init(_seed):
 
 
 @bot.command(pass_context=True)
-@commands.cooldown(1, 10, commands.BucketType.default)
+@app_commands.checks.cooldown(1, 10.0)
 async def board(ctx):
     """Shows the board."""
     await show_board(ctx)
@@ -471,7 +409,7 @@ async def show_board(ctx):
     board_msg = await ctx.send(file=discord.File("board.jpg"))
     await board_msg.pin()
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True)
 async def finalboard(ctx):
   """Shows the final board with all colors filled in."""
@@ -505,7 +443,6 @@ async def show_final(ctx):
     await team_msg_blue.unpin()
     team_msg_red = None
     team_msg_blue = None
-    write_state()
 
 def get_board(seed):
     board = boardgen.createNewGame(seed).split(',')
@@ -563,68 +500,14 @@ def draw_grid(seed, solved):
     draw.text((270,1), "BLUE: %s remaining" % bluesremaining, (0,0,255), font=lfont)
     
     image1.save("board.jpg")
-    """
-    output = BytesIO()
-    image1.save(output, format='png')
-    
-    return output.getvalue()
-    """
-"""
-def pin_red(msg):
-    global pinned_message_red
-    if pinned_message_red is not None:
-        try:
-            pinned_message_red._client._br.edit_message(pinned_message_red.id, "**RED**: *%s*, %s" % (red[0], ', '.join(red[1:])))
-            return
-        except:
-            pinned_message_red.cancel_stars()
-    msg.pin()
-    pinned_message_red = msg
 
-def pin_blue(msg):
-    global pinned_message_blue
-    if pinned_message_blue is not None:
-        try:
-            pinned_message_blue._client._br.edit_message(pinned_message_blue.id, "**BLUE**: *%s*, %s" % (blue[0], ', '.join(blue[1:])))
-            return
-        except:
-            pinned_message_blue.cancel_stars()
-    msg.pin()
-    pinned_message_blue = msg
-"""
-
-def upload_image(im):
-    """
-    if imagehost == 'puush':
-        try:
-            return upload_puush(im)
-        except:
-            pass
-    return upload_imgur(im)
-    """
 
 def upload_imgur(im):
     data = urllib.parse.urlencode([('image', im)]).encode("utf-8")
     req = urllib.request.Request('https://api.imgur.com/3/image', data=data, headers={"Authorization": "Client-ID 44c2dcd61ab0bb9"})
     return json.loads(urllib.request.urlopen(req).read())["data"]["link"]
 
-"""
-#DISABLED
-def upload_puush(im):
-    im = StringIO(im)
-    im.name = 'temp.png'
-    account = puush.Account(Puush_API_Key)
-    f = account.upload(im)
-    return f.url
-
-#DISABLED
-def submit_secret(secret):
-    data = {'secret': secret}
-    r = requests.post('https://onetimesecret.com/api/v1/share', data=data, auth=HTTPBasicAuth(OTS_User, OTS_Password))
-    return 'https://onetimesecret.com/secret/' + r.json()['secret_key']
-"""
-
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True)
 async def teams(ctx):
     """Shows the current teams."""
@@ -632,14 +515,14 @@ async def teams(ctx):
     await ctx.send("**RED team**: *%s*, %s" % (red[0], ', '.join(red[1:])))
     await ctx.send("**BLUE team**: *%s*, %s" % (blue[0], ', '.join(blue[1:])))
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True)
 async def redteam(ctx):
   """Pings the red team guessers."""
   global red
   await ctx.send(', '.join(red[1:]))
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True)
 async def blueteam(ctx):
   """Pings the blue team guessers."""
@@ -712,7 +595,7 @@ async def hangman_guess(ctx, letter):
             await bot.get_channel(783738937080283236).send("Incorrect Guesses: " + ', '.join(hangman_wrong))
         await bot.get_channel(783738937080283236).send(get_hangman_word())
 
-@commands.cooldown(1, 3, commands.BucketType.user)
+@app_commands.checks.cooldown(1, 3.0)
 @bot.command(pass_context=True)
 async def hangman(ctx, com: str, letter=""):
     """
@@ -750,8 +633,6 @@ async def hangman(ctx, com: str, letter=""):
                 await bot.get_channel(783738937080283236).send(":x: The word is not **" + guess.lower() + "**")
                 hangman_stage += 1
 
-read_state() 
 init(str(seed))
-keep_alive.keep_alive()
 bot.run(DISCORD_KEY)
 

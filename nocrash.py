@@ -29,17 +29,17 @@ environ = os.environ.copy()
 
 def log(message):
     logging.info('[NoCrash] {}'.format(message))
-    print '[NoCrash] {}'.format(message)
+    print('[NoCrash] {}'.format(message))
 
 
 def warn(message):
     logging.warn('[NoCrash] {}'.format(message))
-    print '[NoCrash] {}'.format(message)
+    print('[NoCrash] {}'.format(message))
 
 
 def error(message):
     logging.error('[NoCrash] {}'.format(message))
-    print '[NoCrash] {}'.format(message)
+    print('[NoCrash] {}'.format(message))
 
 
 while stoprunning is False:
