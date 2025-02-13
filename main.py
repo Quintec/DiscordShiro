@@ -9,25 +9,16 @@ import boardgen, discord
 import discord.app_commands as app_commands
 from discord.ext import commands
 
-import getpass
 from PIL import Image, ImageDraw, ImageFont
-from io import StringIO, BytesIO
 import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
 import json
 import random
-import traceback
-import html.parser
-import pickle
-import base64
 
 
 import re
 import time
-import sqlite3
 
-import requests
-from requests.auth import HTTPBasicAuth
-from helpers import log, log_exception
+from helpers import log
 imagehost = 'imgur'
 
 guessed = []
@@ -493,7 +484,7 @@ def draw_grid(seed, solved):
         for y in range(5):
             word = board[1][x*5+y]
 
-            size = draw.textsize(word, font=font)
+            size = [draw.textlength(word, font=font), 12]
             draw.text((x * GRID_WIDTH + GRID_WIDTH/2 - size[0]/2, y_offset + y * GRID_HEIGHT + GRID_HEIGHT/2 - size[1]/2), word, (0,0,0), font=font)
 
     draw.text((70,1), "RED: %s remaining" % redsremaining, (255,0,0), font=lfont)
